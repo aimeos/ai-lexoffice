@@ -77,9 +77,121 @@ class Lexoffice
 		$parts = \Aimeos\MShop\Order\Item\Base\Base::PARTS_ALL;
 		$basket = $this->getOrderBase( $order->getBaseId(), $parts );
 
-		// send the order details to an external system
+		$contactId = $this->contact( $basket );
 
 		return $order->setDeliveryStatus( \Aimeos\MShop\Order\Item\Base::STAT_PROGRESS );
+	}
+
+
+	/**
+	 * Returns the contact ID for the payment address or creates a new record
+	 *
+	 * @param \Aimeos\MShop\Order\Item\Base\Iface $basket Basket with addresses
+	 * @return string|null Contact ID
+	 */
+	protected function contact( \Aimeos\MShop\Order\Item\Base\Iface $basket ) : ?string
+	{
+		if( ( $address = current( $basket->getAddress( 'payment' ) ) ) === false ) {
+			return null;
+		}
+
+		$result = $this->send( 'v1/contacts?email=' . $address->getEmail() );
+		$id = ( $item = current( $result ) ) !== false ? $item['id'] : null;
+		$i18n = $this->getContext()->getI18n();
+
+		$body = [
+			'version' =>  0,
+			'roles' => [
+				'customer' => new \stdClass
+			],
+			'emailAddresses' => [
+				'business' => [$address->getEmail()]
+			],
+			'note' => 'Aimeos'
+		];
+
+		$body = array_merge_recursive( $body, $this->contactPerson( $address ) );
+		$body = array_merge_recursive( $body, $this->contactAddress( $address ), $basket->getAddress( 'delivery' ) );
+
+		$result = $this->send( 'v1/contacts/' . $id, $body, 'POST' );
+
+		return ( $item = current( $result ) ) !== false ? $item['id'] : null;
+	}
+
+
+	/**
+	 * Returns the contact person data
+	 *
+	 * @param \Aimeos\MShop\Common\Item\Address\Iface $address Payment address item
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function contactPerson( \Aimeos\MShop\Common\Item\Address\Iface $address ) : array
+	{
+		if( !empty( $company = $address->getCompany() ) )
+		{
+			$body = [
+				'company' => [
+					'name' => $company,
+					'vatRegistrationId' => $address->getVatId(),
+				]
+			];
+
+			foreach( $basket->getAddress( 'payment' ) as $addr )
+			{
+				$body['company']['contactPersons'][] = [
+					'firstName' => $addr->getFirstname(),
+					'lastName' => $addr->getLastname(),
+					'emailAddress' => $addr->getEmail(),
+					'phoneNumber' => $addr->getTelephone(),
+				];
+			}
+
+			return $body;
+		}
+
+		return [
+			'person' => [
+				'salutation' => $i18n->dt( 'mshop/code', $address->getSalutation() ),
+				'firstName' => $address->getFirstname(),
+				'lastName' => $address->getLastname(),
+			]
+		];
+	}
+
+
+	/**
+	 * Returns the contact address data
+	 *
+	 * @param \Aimeos\MShop\Common\Item\Address\Iface $address Payment address item
+	 * @param \Aimeos\MShop\Common\Item\Address\Iface[] $shipAddresses List of delivery address items
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function contactAddress( \Aimeos\MShop\Common\Item\Address\Iface $address, array $shipAddresses ) : array
+	{
+		$body = [
+			'addresses' => [
+				'billing' => [[
+					'street' => $address->getAddress1(),
+					'supplement' => $address->getAddress2(),
+					'zip' => $address->getPostal(),
+					'city' => $address->getCity(),
+					'countryCode' => $address->getCountryId(),
+				]
+			]]
+		];
+
+		foreach( $shipAddresses as $addr )
+		{
+			$body['addresses']['shipping'][] = [
+				'street' => $addr->getAddress1(),
+				'supplement' => $addr->getAddress2(),
+				'zip' => $addr->getPostal(),
+				'city' => $addr->getCity(),
+				'countryCode' => $addr->getCountryId(),
+			];
+		}
+
+		return $body;
 	}
 
 
