@@ -196,7 +196,144 @@ class Lexoffice
 
 
 	/**
-	 * Sends a request to the Mangopay server
+	 * Sends the order details to Lexoffice and returns the Lexoffice ID
+	 *
+	 * @param \Aimeos\MShop\Order\Item\Base\Iface $basket Basket with addresses, products and services
+	 * @param string|null Lexoffice contact ID or NULL if none is available
+	 * @return string|null Lexoffice order/invoice ID or NULL in case of an error
+	 */
+	protected function order( \Aimeos\MShop\Order\Item\Base\Iface $basket, string $contactId = null ) : ?string
+	{
+		$price = $basket->getPrice();
+		$body = [
+			'voucherDate' => str_replace( ' ', 'T', $basket->getTimeCreated() ) . '.000+01:00',
+			'language' => $basket->getLoclae()->getLanguageId(),
+			'totalPrice' => [
+				'currency' => $price->getCurrencyId()
+			],
+			'taxConditions' => [
+				'taxType' => $price->getTaxrate() == 0 ? 'vatfree' : ( $price->getTaxflag() ? 'gross' : 'net' )
+			]
+		];
+
+		if( !$contactId && ( $address = current( $basket->getAddress( 'payment' ) ) ) !== false ) {
+			$body = array_merge_recursive( $body, $this->orderAddress( $address ) );
+		} else {
+			$body['address'] = ['contactId' => $contactId];
+		}
+
+		$body['lineItems'] = $this->orderItems( $basket->getProducts() );
+		$body = array_merge_recursive( $body, $this->orderPayment( $basket->getService( 'payment' ) ) );
+		$body = array_merge_recursive( $body, $this->orderShipping( $basket->getService( 'delivery' ) ) );
+
+		$result = $this->send( 'v1/invoices/' . $id, $body, 'POST' );
+
+		return ( $item = current( $result ) ) !== false ? $item['id'] : null;
+	}
+
+
+	/**
+	 * Returns the order address data for Lexoffice
+	 *
+	 * @param \Aimeos\MShop\Common\Item\Address\Iface $address Payment address item
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function orderAddress( \Aimeos\MShop\Common\Item\Address\Iface $address ) : array
+	{
+		return [
+			'address' => [
+				'name' => $address->getCompany() ?: $address->getFirstname() . ' ' . $address->getLastname(),
+				'street' => $address->getAddress1(),
+				'supplement' => $address->getAddress2(),
+				'zip' => $address->getPostal(),
+				'city' => $address->getCity(),
+				'countryCode' => $address->getCountryId()
+			]
+		];
+	}
+
+
+	/**
+	 * Returns the order product data for Lexoffice
+	 *
+	 * @param iterable $products List of ordered products
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function orderItems( iterable $products ) : array
+	{
+		$list = [];
+
+		foreach( $products as $oProduct )
+		{
+			$price = $oProduct->getPrice();
+			$item = [
+				'custom' => 'custom',
+				'name' => $oProduct->getName(),
+				'description' => $oProduct->getDescription(),
+				'quantity' => $oProduct->getQuantity(),
+				'unitName' => 'x',
+				'unitPrice' => [
+					'currency' => $price->getCurrencyId(),
+					'taxRatePercentage' => $price->getTaxrate(),
+				]
+			];
+
+			if( $price->getTaxflag() ) {
+				$item['unitPrice']['grossAmount'] = $price->getValue();
+			} else {
+				$item['unitPrice']['netAmount'] = $price->getValue();
+			}
+
+			$list[] = $item;
+		}
+
+		return $list;
+	}
+
+
+	/**
+	 * Returns the order payment related data for Lexoffice
+	 *
+	 * @param iterable $list List of order payment service items
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function orderPayment( iterable $list ) : array
+	{
+		if( ( $service = current( $list ) ) === false ) {
+			return [];
+		}
+
+		return [
+			'paymentConditions' => [
+				'paymentTermLabel' => $service->getName()
+			]
+		];
+	}
+
+
+	/**
+	 * Returns the order delivery related data for Lexoffice
+	 *
+	 * @param iterable $list List of order delivery service items
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function orderShipping( iterable $list ) : array
+	{
+		if( current( $list ) === false ) {
+			return [];
+		}
+
+		return [
+			'shippingConditions' => [
+				'shippingType' => 'delivery',
+				'shippingDate' => date( 'c', time() + 3600 * 24 * 3 )
+			]
+		];
+	}
+
+
+	/**
+	 * Sends a request to the Lexoffice server
 	 *
 	 * @param string $path Relative path of the resource (without client ID)
 	 * @param array $body Associative list of data to send
