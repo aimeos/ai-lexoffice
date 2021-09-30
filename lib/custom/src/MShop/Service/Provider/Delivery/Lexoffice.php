@@ -33,6 +33,24 @@ class Lexoffice
 			'default'=> '',
 			'required'=> true,
 		],
+		'lexoffice.shipping-days' => [
+			'code' => 'lexoffice.shipping-days',
+			'internalcode'=> 'lexoffice.shipping-days',
+			'label'=> 'Max. days until order is shipped',
+			'type'=> 'integer',
+			'internaltype'=> 'integer',
+			'default'=> 3,
+			'required'=> false,
+		],
+		'lexoffice.payment-days' => [
+			'code' => 'lexoffice.payment-days',
+			'internalcode'=> 'lexoffice.payment-days',
+			'label'=> 'Days until payment is overdue',
+			'type'=> 'integer',
+			'internaltype'=> 'integer',
+			'default'=> 3,
+			'required'=> false,
+		],
 	];
 
 
@@ -78,6 +96,17 @@ class Lexoffice
 		$basket = $this->getOrderBase( $order->getBaseId(), $parts );
 
 		$contactId = $this->contact( $basket );
+		$invoiceId = $this->order( $basket, $contactId );
+
+		$service = map( $basket->getService( 'delivery' ) )
+			->col( null, 'order.base.service.code' )
+			->get( $this->getServiceItem()->getCode() );
+
+		if( $service )
+		{
+			$this->setAttributes( $service, ['lexoffice-invoiceid' => $invoiceId], 'hidden' );
+			$this->saveOrderBase( $basket );
+		}
 
 		return $order->setDeliveryStatus( \Aimeos\MShop\Order\Item\Base::STAT_PROGRESS );
 	}
@@ -95,12 +124,17 @@ class Lexoffice
 			return null;
 		}
 
-		$result = $this->send( 'v1/contacts?email=' . $address->getEmail() );
-		$id = ( $item = current( $result ) ) !== false ? $item['id'] : null;
-		$i18n = $this->getContext()->getI18n();
+		$id = null; $version = 0;
+		list( $result, $status ) = $this->send( 'v1/contacts?email=' . $address->getEmail() );
+
+		if( $status == 200 && ( $item = current( $result['content'] ?? [] ) ) !== false )
+		{
+			$version = $item['version'] ?? 0;
+			$id = $item['id'] ?? null;
+		}
 
 		$body = [
-			'version' =>  0,
+			'version' => $version,
 			'roles' => [
 				'customer' => new \stdClass
 			],
@@ -111,51 +145,11 @@ class Lexoffice
 		];
 
 		$body = array_merge_recursive( $body, $this->contactPerson( $address ) );
-		$body = array_merge_recursive( $body, $this->contactAddress( $address ), $basket->getAddress( 'delivery' ) );
+		$body = array_merge_recursive( $body, $this->contactAddress( $address, $basket->getAddress( 'delivery' ) ) );
 
-		$result = $this->send( 'v1/contacts/' . $id, $body, 'POST' );
+		list( $result, $status ) = $this->send( 'v1/contacts/' . $id, $body, $id ? 'PUT' : 'POST' );
 
-		return ( $item = current( $result ) ) !== false ? $item['id'] : null;
-	}
-
-
-	/**
-	 * Returns the contact person data
-	 *
-	 * @param \Aimeos\MShop\Common\Item\Address\Iface $address Payment address item
-	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
-	 */
-	protected function contactPerson( \Aimeos\MShop\Common\Item\Address\Iface $address ) : array
-	{
-		if( !empty( $company = $address->getCompany() ) )
-		{
-			$body = [
-				'company' => [
-					'name' => $company,
-					'vatRegistrationId' => $address->getVatId(),
-				]
-			];
-
-			foreach( $basket->getAddress( 'payment' ) as $addr )
-			{
-				$body['company']['contactPersons'][] = [
-					'firstName' => $addr->getFirstname(),
-					'lastName' => $addr->getLastname(),
-					'emailAddress' => $addr->getEmail(),
-					'phoneNumber' => $addr->getTelephone(),
-				];
-			}
-
-			return $body;
-		}
-
-		return [
-			'person' => [
-				'salutation' => $i18n->dt( 'mshop/code', $address->getSalutation() ),
-				'firstName' => $address->getFirstname(),
-				'lastName' => $address->getLastname(),
-			]
-		];
+		return in_array( $status, [200, 201] ) && isset( $result['id'] ) ? $result['id'] : null;
 	}
 
 
@@ -196,6 +190,46 @@ class Lexoffice
 
 
 	/**
+	 * Returns the contact person data
+	 *
+	 * @param \Aimeos\MShop\Common\Item\Address\Iface $address Payment address item
+	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
+	 */
+	protected function contactPerson( \Aimeos\MShop\Common\Item\Address\Iface $address ) : array
+	{
+		if( !empty( $company = $address->getCompany() ) )
+		{
+			$body = [
+				'company' => [
+					'name' => $company,
+					'vatRegistrationId' => $address->getVatId(),
+				]
+			];
+
+			foreach( $basket->getAddress( 'payment' ) as $addr )
+			{
+				$body['company']['contactPersons'][] = [
+					'firstName' => $addr->getFirstname(),
+					'lastName' => $addr->getLastname(),
+					'emailAddress' => $addr->getEmail(),
+					'phoneNumber' => $addr->getTelephone(),
+				];
+			}
+
+			return $body;
+		}
+
+		return [
+			'person' => [
+				'salutation' => $this->getContext()->translate( 'mshop/code', $address->getSalutation() ),
+				'firstName' => $address->getFirstname(),
+				'lastName' => $address->getLastname(),
+			]
+		];
+	}
+
+
+	/**
 	 * Sends the order details to Lexoffice and returns the Lexoffice ID
 	 *
 	 * @param \Aimeos\MShop\Order\Item\Base\Iface $basket Basket with addresses, products and services
@@ -207,12 +241,12 @@ class Lexoffice
 		$price = $basket->getPrice();
 		$body = [
 			'voucherDate' => str_replace( ' ', 'T', $basket->getTimeCreated() ) . '.000+01:00',
-			'language' => $basket->getLoclae()->getLanguageId(),
+			'language' => $basket->getLocale()->getLanguageId(),
 			'totalPrice' => [
 				'currency' => $price->getCurrencyId()
 			],
 			'taxConditions' => [
-				'taxType' => $price->getTaxrate() == 0 ? 'vatfree' : ( $price->getTaxflag() ? 'gross' : 'net' )
+				'taxType' => $price->getTaxflag() ? 'gross' : 'net'
 			]
 		];
 
@@ -226,9 +260,13 @@ class Lexoffice
 		$body = array_merge_recursive( $body, $this->orderPayment( $basket->getService( 'payment' ) ) );
 		$body = array_merge_recursive( $body, $this->orderShipping( $basket->getService( 'delivery' ) ) );
 
-		$result = $this->send( 'v1/invoices/' . $id, $body, 'POST' );
+		list( $result, $status ) = $this->send( 'v1/invoices', $body, 'POST' );
 
-		return ( $item = current( $result ) ) !== false ? $item['id'] : null;
+		if( $status != 201 || !isset( $result['id'] ) ) {
+			throw new \RuntimeException( "Lexoffice: Unable to create invoice\n" . print_r( $result, true ) );
+		}
+
+		return $result['id'];
 	}
 
 
@@ -267,7 +305,7 @@ class Lexoffice
 		{
 			$price = $oProduct->getPrice();
 			$item = [
-				'custom' => 'custom',
+				'type' => 'custom',
 				'name' => $oProduct->getName(),
 				'description' => $oProduct->getDescription(),
 				'quantity' => $oProduct->getQuantity(),
@@ -305,7 +343,8 @@ class Lexoffice
 
 		return [
 			'paymentConditions' => [
-				'paymentTermLabel' => $service->getName()
+				'paymentTermLabel' => $service->getName(),
+				'paymentTermDuration' => $this->getConfigValue( 'lexoffice.payment-days' )
 			]
 		];
 	}
@@ -323,10 +362,12 @@ class Lexoffice
 			return [];
 		}
 
+		$days = $this->getConfigValue( 'lexoffice.shipping-days' );
+
 		return [
 			'shippingConditions' => [
 				'shippingType' => 'delivery',
-				'shippingDate' => date( 'c', time() + 3600 * 24 * 3 )
+				'shippingDate' => date( 'Y-m-d\TH:i:s.000P', time() + 3600 * 24 * $days )
 			]
 		];
 	}
