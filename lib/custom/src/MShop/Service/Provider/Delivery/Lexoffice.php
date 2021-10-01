@@ -96,7 +96,7 @@ class Lexoffice
 		$basket = $this->getOrderBase( $order->getBaseId(), $parts );
 
 		$contactId = $this->contact( $basket );
-		$invoiceId = $this->order( $basket, $contactId );
+		$invoiceId = $this->order( $basket, $order, $contactId );
 
 		$service = map( $basket->getService( 'delivery' ) )
 			->col( null, 'order.base.service.code' )
@@ -233,12 +233,16 @@ class Lexoffice
 	 * Sends the order details to Lexoffice and returns the Lexoffice ID
 	 *
 	 * @param \Aimeos\MShop\Order\Item\Base\Iface $basket Basket with addresses, products and services
+	 * @param \Aimeos\MShop\Order\Item\Iface $order Order item
 	 * @param string|null Lexoffice contact ID or NULL if none is available
 	 * @return string|null Lexoffice order/invoice ID or NULL in case of an error
 	 */
-	protected function order( \Aimeos\MShop\Order\Item\Base\Iface $basket, string $contactId = null ) : ?string
+	protected function order( \Aimeos\MShop\Order\Item\Base\Iface $basket,
+		\Aimeos\MShop\Order\Item\Iface $order, string $contactId = null ) : ?string
 	{
+		$intro = $this->getContext()->translate( 'lexoffice', 'Invoice for your order %1$s');
 		$price = $basket->getPrice();
+
 		$body = [
 			'voucherDate' => str_replace( ' ', 'T', $basket->getTimeCreated() ) . '.000+01:00',
 			'language' => $basket->getLocale()->getLanguageId(),
@@ -247,7 +251,8 @@ class Lexoffice
 			],
 			'taxConditions' => [
 				'taxType' => $price->getTaxflag() ? 'gross' : 'net'
-			]
+			],
+			'introduction' => sprintf( $intro, $order->getId() )
 		];
 
 		if( !$contactId && ( $address = current( $basket->getAddress( 'payment' ) ) ) !== false ) {
@@ -258,9 +263,9 @@ class Lexoffice
 
 		$body['lineItems'] = $this->orderItems( $basket->getProducts() );
 		$body = array_merge_recursive( $body, $this->orderPayment( $basket->getService( 'payment' ) ) );
-		$body = array_merge_recursive( $body, $this->orderShipping( $basket->getService( 'delivery' ) ) );
+		$body = array_merge_recursive( $body, $this->orderShipping( $basket->getService( 'delivery' ), $price ) );
 
-		list( $result, $status ) = $this->send( 'v1/invoices', $body, 'POST' );
+		list( $result, $status ) = $this->send( 'v1/invoices?finalize=true', $body, 'POST' );
 
 		if( $status != 201 || !isset( $result['id'] ) ) {
 			throw new \RuntimeException( "Lexoffice: Unable to create invoice\n" . print_r( $result, true ) );
@@ -356,15 +361,34 @@ class Lexoffice
 	 * @param iterable $list List of order delivery service items
 	 * @return array Multi-dimensional associative list of key/value pairs for Lexoffice
 	 */
-	protected function orderShipping( iterable $list ) : array
+	protected function orderShipping( iterable $list, \Aimeos\MShop\Price\Item\Iface $price ) : array
 	{
-		if( current( $list ) === false ) {
+		if( ( $service = current( $list ) ) === false ) {
 			return [];
+		}
+
+		$servicePrice = $service->getPrice();
+		$item = [
+			'type' => 'custom',
+			'name' => $service->getName(),
+			'quantity' => 1,
+			'unitName' => 'x',
+			'unitPrice' => [
+				'currency' => $servicePrice->getCurrencyId(),
+				'taxRatePercentage' => $servicePrice->getTaxrate(),
+			]
+		];
+
+		if( $price->getTaxflag() ) {
+			$item['unitPrice']['grossAmount'] = $price->getCosts();
+		} else {
+			$item['unitPrice']['netAmount'] = $price->getCosts();
 		}
 
 		$days = $this->getConfigValue( 'lexoffice.shipping-days' );
 
 		return [
+			'lineItems' => [$item],
 			'shippingConditions' => [
 				'shippingType' => 'delivery',
 				'shippingDate' => date( 'Y-m-d\TH:i:s.000P', time() + 3600 * 24 * $days )
