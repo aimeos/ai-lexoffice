@@ -8,6 +8,9 @@ return [
 	'depends' => [
 		'aimeos-core',
 	],
+	'i18n' => [
+		'lexoffice' => 'i18n',
+	],
 	'include' => [
 		'lib/custom/src',
 	],
