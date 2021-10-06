@@ -203,18 +203,14 @@ class Lexoffice
 				'company' => [
 					'name' => $company,
 					'vatRegistrationId' => $address->getVatId(),
-				]
-			];
-
-			foreach( $basket->getAddress( 'payment' ) as $addr )
-			{
-				$body['company']['contactPersons'][] = [
+				],
+				'contactPersons' => [[
 					'firstName' => $addr->getFirstname(),
 					'lastName' => $addr->getLastname(),
 					'emailAddress' => $addr->getEmail(),
 					'phoneNumber' => $addr->getTelephone(),
-				];
-			}
+				]]
+			];
 
 			return $body;
 		}
