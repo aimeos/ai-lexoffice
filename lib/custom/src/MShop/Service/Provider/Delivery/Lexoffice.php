@@ -217,7 +217,7 @@ class Lexoffice
 
 		return [
 			'person' => [
-				'salutation' => $this->getContext()->translate( 'mshop/code', $address->getSalutation() ),
+				'salutation' => $this->getContext()->getI18n()->dt( 'mshop/code', $address->getSalutation() ),
 				'firstName' => $address->getFirstname(),
 				'lastName' => $address->getLastname(),
 			]
@@ -236,7 +236,7 @@ class Lexoffice
 	protected function order( \Aimeos\MShop\Order\Item\Base\Iface $basket,
 		\Aimeos\MShop\Order\Item\Iface $order, string $contactId = null ) : ?string
 	{
-		$intro = $this->getContext()->translate( 'lexoffice', 'Invoice for your order %1$s');
+		$intro = $this->getContext()->getI18n()->dt( 'lexoffice', 'Invoice for your order %1$s');
 		$price = $basket->getPrice();
 
 		$body = [
