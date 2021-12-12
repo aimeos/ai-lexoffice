@@ -241,7 +241,7 @@ class Lexoffice
 
 		$body = [
 			'voucherDate' => str_replace( ' ', 'T', $basket->getTimeCreated() ) . '.000+01:00',
-			'language' => $basket->getLocale()->getLanguageId(),
+			'language' => $basket->locale()->getLanguageId(),
 			'totalPrice' => [
 				'currency' => $price->getCurrencyId()
 			],
