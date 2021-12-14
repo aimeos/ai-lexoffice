@@ -205,10 +205,10 @@ class Lexoffice
 					'vatRegistrationId' => $address->getVatId(),
 				],
 				'contactPersons' => [[
-					'firstName' => $addr->getFirstname(),
-					'lastName' => $addr->getLastname(),
-					'emailAddress' => $addr->getEmail(),
-					'phoneNumber' => $addr->getTelephone(),
+					'firstName' => $address->getFirstname(),
+					'lastName' => $address->getLastname(),
+					'emailAddress' => $address->getEmail(),
+					'phoneNumber' => $address->getTelephone(),
 				]]
 			];
 
