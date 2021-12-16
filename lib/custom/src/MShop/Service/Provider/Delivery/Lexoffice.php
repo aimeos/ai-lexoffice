@@ -10,8 +10,6 @@
 
 namespace Aimeos\MShop\Service\Provider\Delivery;
 
-use \Aimeos\MW\Logger\Base as Log;
-
 
 /**
  * Lexoffice delivery provider implementation
