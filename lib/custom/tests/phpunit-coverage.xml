@@ -5,9 +5,6 @@
 		<testsuite name="MShop suite">
 			<directory>MShop/</directory>
 		</testsuite>
-		<testsuite name="MW suite">
-			<directory>MW/</directory>
-		</testsuite>
 	</testsuites>
 	<logging>
 		<log type="coverage-clover" target="coverage.xml"/>
