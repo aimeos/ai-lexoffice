@@ -8,9 +8,9 @@ return [
 		'aimeos-core',
 	],
 	'i18n' => [
-		'lexoffice' => 'lib/custom/i18n',
+		'lexoffice' => 'i18n',
 	],
 	'include' => [
-		'lib/custom/src',
+		'src',
 	],
 ];

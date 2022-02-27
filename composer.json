@@ -12,10 +12,18 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"Aimeos\\MShop\\": "lib/mshoplib/src/MShop/"
+			"Aimeos\\": "src/"
 		},
 		"classmap": [
-			"lib/custom/src"
+			"src"
+		]
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Aimeos\\": "tests/"
+		},
+		"classmap": [
+			"tests"
 		]
 	}
 }
