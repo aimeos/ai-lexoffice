@@ -1,6 +1,6 @@
 {
 	"name": "aimeos/ai-lexoffice",
-	"description": "Aimeos ai-lexoffice extension",
+	"description": "Aimeos Lexoffice integration",
 	"keywords": ["aimeos", "extension", "lexoffice"],
 	"type": "aimeos-extension",
 	"license": "LGPL-3.0",
