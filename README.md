@@ -10,6 +10,12 @@ Use composer to install the `aimeos/ai-lexoffice` extension:
 composer req aimeos/ai-lexoffice
 ```
 
+**Caution:** The **order/service/delivery** job controller needs to be executed regulary
+by a cronjob you need to set up! These articles how to set them up:
+
+- [Laravel cronjobs](https://aimeos.org/docs/latest/laravel/setup/#cronjobs)
+- [TYPO3 scheduler tasks](https://aimeos.org/docs/latest/typo3/setup/#cronjobs)
+
 ## Configuration
 
 For your delivery options in the **Setup > Service** panel of the Aimeos admin backend,
