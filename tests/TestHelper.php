@@ -82,7 +82,7 @@ class TestHelper
 
 		$ctx->setLocale( $localeItem );
 
-		$ctx->setEditor( 'ai-lexoffice:lib/custom' );
+		$ctx->setEditor( 'ai-lexoffice' );
 
 		return $ctx;
 	}
