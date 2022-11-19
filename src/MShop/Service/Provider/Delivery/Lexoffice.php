@@ -100,7 +100,7 @@ class Lexoffice
 			->get( $this->getServiceItem()->getCode() );
 
 		if( $service ) {
-			$this->setAttributes( $service, ['lexoffice-invoiceid' => $invoiceId], 'hidden' );
+			$service->addAttributeItems( $this->attributes( ['lexoffice-invoiceid' => $invoiceId], 'hidden' ) );
 		}
 
 		return $order->setDeliveryStatus( \Aimeos\MShop\Order\Item\Base::STAT_PROGRESS );
