@@ -90,8 +90,7 @@ class Lexoffice
 	 */
 	public function process( \Aimeos\MShop\Order\Item\Iface $order ) : \Aimeos\MShop\Order\Item\Iface
 	{
-		$parts = \Aimeos\MShop\Order\Item\Base\Base::PARTS_ALL;
-		$basket = $this->getOrderBase( $order->getBaseId(), $parts );
+		$basket = $order->getBaseItem();
 
 		$contactId = $this->contact( $basket );
 		$invoiceId = $this->order( $basket, $order, $contactId );
@@ -100,10 +99,8 @@ class Lexoffice
 			->col( null, 'order.base.service.code' )
 			->get( $this->getServiceItem()->getCode() );
 
-		if( $service )
-		{
+		if( $service ) {
 			$this->setAttributes( $service, ['lexoffice-invoiceid' => $invoiceId], 'hidden' );
-			$this->saveOrderBase( $basket );
 		}
 
 		return $order->setDeliveryStatus( \Aimeos\MShop\Order\Item\Base::STAT_PROGRESS );
