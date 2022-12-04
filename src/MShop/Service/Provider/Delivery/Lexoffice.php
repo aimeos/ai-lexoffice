@@ -96,7 +96,7 @@ class Lexoffice
 		$invoiceId = $this->order( $basket, $order, $contactId );
 
 		$service = map( $basket->getService( 'delivery' ) )
-			->col( null, 'order.base.service.code' )
+			->col( null, 'order.service.code' )
 			->get( $this->getServiceItem()->getCode() );
 
 		if( $service ) {
