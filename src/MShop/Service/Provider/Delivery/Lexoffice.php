@@ -90,10 +90,8 @@ class Lexoffice
 	 */
 	public function process( \Aimeos\MShop\Order\Item\Iface $order ) : \Aimeos\MShop\Order\Item\Iface
 	{
-		$basket = $order->getBaseItem();
-
-		$contactId = $this->contact( $basket );
-		$invoiceId = $this->order( $basket, $order, $contactId );
+		$contactId = $this->contact( $order );
+		$invoiceId = $this->order( $order, $contactId );
 
 		$service = map( $basket->getService( 'delivery' ) )
 			->col( null, 'order.service.code' )
@@ -110,12 +108,12 @@ class Lexoffice
 	/**
 	 * Returns the contact ID for the payment address or creates a new record
 	 *
-	 * @param \Aimeos\MShop\Order\Item\Base\Iface $basket Basket with addresses
+	 * @param \Aimeos\MShop\Order\Item\Iface $order Order with addresses
 	 * @return string|null Contact ID
 	 */
-	protected function contact( \Aimeos\MShop\Order\Item\Base\Iface $basket ) : ?string
+	protected function contact( \Aimeos\MShop\Order\Item\Iface $order ) : ?string
 	{
-		if( ( $address = current( $basket->getAddress( 'payment' ) ) ) === false ) {
+		if( ( $address = current( $order->getAddress( 'payment' ) ) ) === false ) {
 			return null;
 		}
 
@@ -140,7 +138,7 @@ class Lexoffice
 		];
 
 		$body = array_merge_recursive( $body, $this->contactPerson( $address ) );
-		$body = array_merge_recursive( $body, $this->contactAddress( $address, $basket->getAddress( 'delivery' ) ) );
+		$body = array_merge_recursive( $body, $this->contactAddress( $address, $order->getAddress( 'delivery' ) ) );
 
 		list( $result, $status ) = $this->send( 'v1/contacts/' . $id, $body, $id ? 'PUT' : 'POST' );
 
@@ -223,20 +221,18 @@ class Lexoffice
 	/**
 	 * Sends the order details to Lexoffice and returns the Lexoffice ID
 	 *
-	 * @param \Aimeos\MShop\Order\Item\Base\Iface $basket Basket with addresses, products and services
-	 * @param \Aimeos\MShop\Order\Item\Iface $order Order item
+	 * @param \Aimeos\MShop\Order\Item\Iface $order Order item with addresses, products and services
 	 * @param string|null Lexoffice contact ID or NULL if none is available
 	 * @return string|null Lexoffice order/invoice ID or NULL in case of an error
 	 */
-	protected function order( \Aimeos\MShop\Order\Item\Base\Iface $basket,
-		\Aimeos\MShop\Order\Item\Iface $order, string $contactId = null ) : ?string
+	protected function order( \Aimeos\MShop\Order\Item\Iface $order, string $contactId = null ) : ?string
 	{
 		$intro = $this->context()->translate( 'lexoffice', 'Invoice for your order %1$s');
-		$price = $basket->getPrice();
+		$price = $order->getPrice();
 
 		$body = [
-			'voucherDate' => str_replace( ' ', 'T', $basket->getTimeCreated() ) . '.000+01:00',
-			'language' => $basket->locale()->getLanguageId(),
+			'voucherDate' => str_replace( ' ', 'T', $order->getTimeCreated() ) . '.000+01:00',
+			'language' => $order->locale()->getLanguageId(),
 			'totalPrice' => [
 				'currency' => $price->getCurrencyId()
 			],
@@ -246,15 +242,15 @@ class Lexoffice
 			'introduction' => sprintf( $intro, $order->getId() )
 		];
 
-		if( !$contactId && ( $address = current( $basket->getAddress( 'payment' ) ) ) !== false ) {
+		if( !$contactId && ( $address = current( $order->getAddress( 'payment' ) ) ) !== false ) {
 			$body = array_merge_recursive( $body, $this->orderAddress( $address ) );
 		} else {
 			$body['address'] = ['contactId' => $contactId];
 		}
 
-		$body['lineItems'] = $this->orderItems( $basket->getProducts() );
-		$body = array_merge_recursive( $body, $this->orderPayment( $basket->getService( 'payment' ) ) );
-		$body = array_merge_recursive( $body, $this->orderShipping( $basket->getService( 'delivery' ), $price ) );
+		$body['lineItems'] = $this->orderItems( $order->getProducts() );
+		$body = array_merge_recursive( $body, $this->orderPayment( $order->getService( 'payment' ) ) );
+		$body = array_merge_recursive( $body, $this->orderShipping( $order->getService( 'delivery' ), $price ) );
 
 		list( $result, $status ) = $this->send( 'v1/invoices?finalize=true', $body, 'POST' );
 
