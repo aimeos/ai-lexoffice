@@ -85,23 +85,28 @@ class Lexoffice
 	/**
 	 * Sends the order to the Lexoffice API
 	 *
-	 * @param \Aimeos\MShop\Order\Item\Iface $order Order item
-	 * @return \Aimeos\MShop\Order\Item\Iface Modified order item
+	 * @param \Aimeos\MShop\Order\Item\Iface[] $orders List of order invoice objects
+	 * @return \Aimeos\Map Updated order items
 	 */
-	public function process( \Aimeos\MShop\Order\Item\Iface $order ) : \Aimeos\MShop\Order\Item\Iface
+	public function push( iterable $orders ) : \Aimeos\Map
 	{
-		$contactId = $this->contact( $order );
-		$invoiceId = $this->order( $order, $contactId );
+		foreach( $orders as $order )
+		{
+			$contactId = $this->contact( $order );
+			$invoiceId = $this->order( $order, $contactId );
 
-		$service = map( $basket->getService( 'delivery' ) )
-			->col( null, 'order.service.code' )
-			->get( $this->getServiceItem()->getCode() );
+			$service = map( $basket->getService( 'delivery' ) )
+				->col( null, 'order.service.code' )
+				->get( $this->getServiceItem()->getCode() );
 
-		if( $service ) {
-			$service->addAttributeItems( $this->attributes( ['lexoffice-invoiceid' => $invoiceId], 'hidden' ) );
+			if( $service ) {
+				$service->addAttributeItems( $this->attributes( ['lexoffice-invoiceid' => $invoiceId], 'hidden' ) );
+			}
+
+			$order->setDeliveryStatus( \Aimeos\MShop\Order\Item\Base::STAT_PROGRESS );
 		}
 
-		return $order->setDeliveryStatus( \Aimeos\MShop\Order\Item\Base::STAT_PROGRESS );
+		return map( $orders );
 	}
 
 
