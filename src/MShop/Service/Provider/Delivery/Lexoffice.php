@@ -21,7 +21,7 @@ class Lexoffice
 	extends \Aimeos\MShop\Service\Provider\Delivery\Base
 	implements \Aimeos\MShop\Service\Provider\Delivery\Iface
 {
-	private $beconfig = [
+	private array $beconfig = [
 		'lexoffice.apikey' => [
 			'code' => 'lexoffice.apikey',
 			'internalcode'=> 'lexoffice.apikey',
