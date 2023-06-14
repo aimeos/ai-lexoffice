@@ -68,7 +68,7 @@ class Lexoffice
 	/**
 	 * Returns the configuration attribute definitions
 	 *
-	 * @return \Aimeos\MW\Common\Critera\Attribute\Iface[] List of attribute definitions
+	 * @return \Aimeos\Base\Critera\Attribute\Iface[] List of attribute definitions
 	 */
 	public function getConfigBE() : array
 	{
