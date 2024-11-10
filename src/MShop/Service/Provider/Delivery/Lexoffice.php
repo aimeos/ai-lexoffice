@@ -230,7 +230,7 @@ class Lexoffice
 	 * @param string|null Lexoffice contact ID or NULL if none is available
 	 * @return string|null Lexoffice order/invoice ID or NULL in case of an error
 	 */
-	protected function order( \Aimeos\MShop\Order\Item\Iface $order, string $contactId = null ) : ?string
+	protected function order( \Aimeos\MShop\Order\Item\Iface $order, ?string $contactId = null ) : ?string
 	{
 		$intro = $this->context()->translate( 'lexoffice', 'Invoice for your order %1$s');
 		$price = $order->getPrice();
