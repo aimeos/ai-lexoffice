@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-04 16:07+0200\n"
+"POT-Creation-Date: 2025-01-19 18:15+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,22 +17,22 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/MShop/Service/Provider/Delivery/Lexoffice.php:435
 #, php-format
 msgid "Curl error for \"%1$s\": \"%2$s\""
 msgstr ""
 
-#: src/MShop/Service/Provider/Delivery/Lexoffice.php:431
 #, php-format
 msgid "Curl exec failed for \"%1$s\": %2$s"
 msgstr ""
 
-#: src/MShop/Service/Provider/Delivery/Lexoffice.php:439
 #, php-format
 msgid "Curl getinfo failed for \"%1$s\": %2$s"
 msgstr ""
 
-#: src/MShop/Service/Provider/Delivery/Lexoffice.php:445
 #, php-format
 msgid "Invalid repsonse for \"%1$s\": %2$s"
+msgstr ""
+
+#, php-format
+msgid "Invoice for your order %1$s"
 msgstr ""
