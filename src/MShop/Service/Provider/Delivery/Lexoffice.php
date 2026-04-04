@@ -439,8 +439,6 @@ class Lexoffice
 			throw new \RuntimeException( sprintf( 'Curl getinfo failed for "%1$s": %2$s', $url, curl_error( $ch ) ) );
 		}
 
-		curl_close( $ch );
-
 		if( ( $result = json_decode( $response, true ) ) === null || !is_array( $result ) ) {
 			throw new \RuntimeException( sprintf( 'Invalid repsonse for "%1$s": %2$s', $url, $response ) );
 		}
