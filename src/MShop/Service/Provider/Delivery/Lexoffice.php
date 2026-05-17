@@ -68,13 +68,14 @@ class Lexoffice
 	/**
 	 * Returns the configuration attribute definitions
 	 *
-	 * @return \Aimeos\Base\Critera\Attribute\Iface[] List of attribute definitions
+	 * @return \Aimeos\Base\Criteria\Attribute\Iface[] List of attribute definitions
 	 */
 	public function getConfigBE() : array
 	{
 		$list = parent::getConfigBE();
 
 		foreach( $this->beconfig as $key => $config ) {
+			// @phpstan-ignore argument.type
 			$list[$key] = new \Aimeos\Base\Criteria\Attribute\Standard( $config );
 		}
 
@@ -95,7 +96,7 @@ class Lexoffice
 			$contactId = $this->contact( $order );
 			$invoiceId = $this->order( $order, $contactId );
 
-			$service = map( $basket->getService( 'delivery' ) )
+			$service = map( $order->getService( 'delivery' ) )
 				->col( null, 'order.service.code' )
 				->get( $this->getServiceItem()->getCode() );
 
@@ -125,6 +126,7 @@ class Lexoffice
 		$id = null; $version = 0;
 		list( $result, $status ) = $this->send( 'v1/contacts?email=' . $address->getEmail() );
 
+		// @phpstan-ignore argument.type
 		if( $status == 200 && ( $item = current( $result['content'] ?? [] ) ) !== false )
 		{
 			$version = $item['version'] ?? 0;
@@ -142,11 +144,14 @@ class Lexoffice
 			'note' => 'Aimeos'
 		];
 
+		// @phpstan-ignore argument.type
 		$body = array_merge_recursive( $body, $this->contactPerson( $address ) );
+		// @phpstan-ignore argument.type, argument.type
 		$body = array_merge_recursive( $body, $this->contactAddress( $address, $order->getAddress( 'delivery' ) ) );
 
 		list( $result, $status ) = $this->send( 'v1/contacts/' . $id, $body, $id ? 'PUT' : 'POST' );
 
+		// @phpstan-ignore return.type
 		return in_array( $status, [200, 201] ) && isset( $result['id'] ) ? $result['id'] : null;
 	}
 
@@ -227,7 +232,7 @@ class Lexoffice
 	 * Sends the order details to Lexoffice and returns the Lexoffice ID
 	 *
 	 * @param \Aimeos\MShop\Order\Item\Iface $order Order item with addresses, products and services
-	 * @param string|null Lexoffice contact ID or NULL if none is available
+	 * @param string|null $contactId Lexoffice contact ID or NULL if none is available
 	 * @return string|null Lexoffice order/invoice ID or NULL in case of an error
 	 */
 	protected function order( \Aimeos\MShop\Order\Item\Iface $order, ?string $contactId = null ) : ?string
@@ -236,6 +241,7 @@ class Lexoffice
 		$price = $order->getPrice();
 
 		$body = [
+			// @phpstan-ignore argument.type
 			'voucherDate' => str_replace( ' ', 'T', $order->getTimeCreated() ) . '.000+01:00',
 			'language' => $order->locale()->getLanguageId(),
 			'totalPrice' => [
@@ -248,13 +254,16 @@ class Lexoffice
 		];
 
 		if( !$contactId && ( $address = current( $order->getAddress( 'payment' ) ) ) !== false ) {
+			// @phpstan-ignore argument.type
 			$body = array_merge_recursive( $body, $this->orderAddress( $address ) );
 		} else {
 			$body['address'] = ['contactId' => $contactId];
 		}
 
 		$body['lineItems'] = $this->orderItems( $order->getProducts() );
+		// @phpstan-ignore argument.type
 		$body = array_merge_recursive( $body, $this->orderPayment( $order->getService( 'payment' ) ) );
+		// @phpstan-ignore argument.type
 		$body = array_merge_recursive( $body, $this->orderShipping( $order->getService( 'delivery' ), $price ) );
 
 		list( $result, $status ) = $this->send( 'v1/invoices?finalize=true', $body, 'POST' );
@@ -263,6 +272,7 @@ class Lexoffice
 			throw new \RuntimeException( "Lexoffice: Unable to create invoice\n" . print_r( $result, true ) );
 		}
 
+		// @phpstan-ignore return.type
 		return $result['id'];
 	}
 
@@ -408,6 +418,7 @@ class Lexoffice
 
 		$header = [
 			'Authorization: Bearer ' . $this->getConfigValue( 'lexoffice.apikey' ),
+			// @phpstan-ignore argument.type
 			'Content-Length: ' . strlen( $body ),
 			'Content-Type: application/json',
 			'Accept: application/json',
@@ -416,6 +427,7 @@ class Lexoffice
 
 		curl_setopt( $ch, CURLOPT_URL, $url );
 		curl_setopt( $ch, CURLOPT_HTTPHEADER, $header );
+		// @phpstan-ignore argument.type
 		curl_setopt( $ch, CURLOPT_CUSTOMREQUEST, $method );
 		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
 		curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 5 );
@@ -423,6 +435,7 @@ class Lexoffice
 
 		if( in_array( $method, ['PATCH', 'POST', 'PUT'] ) )
 		{
+			// @phpstan-ignore argument.type
 			curl_setopt( $ch, CURLOPT_POSTFIELDS, $body );
 			curl_setopt( $ch, CURLOPT_POST, true );
 		}
@@ -439,6 +452,7 @@ class Lexoffice
 			throw new \RuntimeException( sprintf( 'Curl getinfo failed for "%1$s": %2$s', $url, curl_error( $ch ) ) );
 		}
 
+		// @phpstan-ignore argument.type
 		if( ( $result = json_decode( $response, true ) ) === null || !is_array( $result ) ) {
 			throw new \RuntimeException( sprintf( 'Invalid repsonse for "%1$s": %2$s', $url, $response ) );
 		}
